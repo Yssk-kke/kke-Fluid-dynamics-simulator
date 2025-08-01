@@ -7,6 +7,7 @@ from common import file_controller
 from common import log_writer
 from common import coordinate_converter
 from common import temperature_converter
+from common import shell_controller
 import re
 import math
 from typing import Tuple, List, Dict
@@ -797,6 +798,8 @@ def main(model_id : str):
     status_db_connection.check(model_id,task_id, status_db_connection.STATUS_IN_PROGRESS)
     try:
         convert(model_id)
+        # Webアプリ側からフォルダを削除する際に、www-dataからの削除権限が必要なので、権限を設定。
+        shell_controller.change_folder_permission(file_path_generator.get_converted_output_model_id_folder_fs(model_id))
         #STATUS DBのレコードを取得Update
         status_db_connection.set_progress(
             model_id, status_db_connection.TASK_OUTPUT_DATA_CONVERT, status_db_connection.STATUS_NORMAL_END)

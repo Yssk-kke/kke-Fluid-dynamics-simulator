@@ -1,6 +1,7 @@
 import os
 import shutil
 import paramiko
+import subprocess
 from stat import S_ISDIR
 from common import utils
 from common import static
@@ -192,6 +193,15 @@ def get_folder(src_folder_path_sim : str , dst_folder_path_fs : str , model_id :
     print(f"local_path:{src_folder_path_sim}")
     print(f"remotre_path:{dst_folder_path_fs}")
     return
+
+# # input_data_convert.py/output_data_transfer.py/output_data_convert.py
+def change_folder_permission(path : str):
+    # chown コマンドを実行
+    try:
+        subprocess.run(['chmod', '-R', '757', path], check=True)
+        print(f'Successfully changed permission to 757 for {path}')
+    except subprocess.CalledProcessError as e:
+        print(f'Error occurred: {e}')
 
 # # check_remote_path
 def check_remote_path_exist(ssh, remote_path):

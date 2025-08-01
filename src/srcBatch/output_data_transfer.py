@@ -16,6 +16,8 @@ def main(model_id:str):
     try:
         #シミュレーションマシンにssh接続し、SIMULATION_MODEL.idフォルダをsimulation_outputフォルダ内にコピーする
         transfer(model_id)
+        # Webアプリ側からフォルダを削除する際に、www-dataからの削除権限が必要なので、権限を設定。
+        shell_controller.change_folder_permission(file_path_generator.combine(file_path_generator.get_simulation_output_folder_fs(),model_id))
         #引数で取得したSIMULATION_MODEL.idのレコードのstatusをNORMAL_ENDに更新する。
         status_db_connection.set_progress(model_id,task_id,status_db_connection.STATUS_NORMAL_END)
     except Exception as e:

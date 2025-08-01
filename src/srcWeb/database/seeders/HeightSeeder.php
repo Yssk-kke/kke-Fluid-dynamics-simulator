@@ -15,7 +15,7 @@ class HeightSeeder extends Seeder
     {
         Height::create([
             'height_id' => 1,
-            'height'    => 1.5
+            'height'    => 3
         ]);
         Height::create([
             'height_id' => 2,
@@ -27,6 +27,10 @@ class HeightSeeder extends Seeder
         ]);
         Height::create([
             'height_id' => 4,
+            'height'    => 20
+        ]);
+        Height::create([
+            'height_id' => 5,
             'height'    => 30
         ]);
     }

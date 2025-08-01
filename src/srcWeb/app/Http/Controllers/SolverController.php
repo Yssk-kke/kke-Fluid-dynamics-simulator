@@ -10,6 +10,7 @@ use App\Utils\LogUtil;
 use App\Utils\StringUtil;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * 熱流体解析ソルバ一覧画面用のコントロール
@@ -178,12 +179,57 @@ class SolverController extends BaseController
     {
         try {
 
+            $errorMessage = [];
+
             $isDeleteFlg = $request->query->get('delete_flg');
             if ($isDeleteFlg) {
-                SolverService::deleteSolver($id);
-                return redirect()->route('solver.index');
+
+                DB::beginTransaction();
+
+                // 識別名を取得する。
+                $solverModelName = SolverService::getSolverById($id)->solver_name;
+
+                $deleteResult = SolverService::deleteSolver($id);
+                $filePath = FileUtil::COMPRESSED_SOLVER_FOLDER . DIRECTORY_SEPARATOR . $id;
+                if ($deleteResult['result']) {
+                    if (!FileUtil::deleteDirectory($filePath)) {
+                        // ディレクトリの削除に失敗した場合の処理。
+                        $errorMessage = [
+                            "type" => "E",
+                            "code" => "E38",
+                            "msg" => sprintf(Message::$E38, Constants::DEL_TYPE_DIRECTORY)
+                        ];
+                    }
+                } else {
+                    // DBレコードの削除に失敗した場合の処理。
+                    $errorMessage = [
+                        "type" => "E",
+                        "code" => "E37",
+                        "msg" => sprintf(Message::$E37, Constants::DEL_TYPE_RECORD)
+                    ];
+                    DB::rollback();
+                    $message = '[' . Constants::DEL_TYPE_RECORD . "] [Delete failed] [solver] [solver_id:$id]";
+                    LogUtil::deleteDirectoryError($message);
+                    // ダイアログを表示
+                    return redirect()->route('solver.index')->with(['message' => $errorMessage]);
+                }
+
+                // DBレコード削除に成功した場合の処理
+                DB::commit();
+                foreach ($deleteResult['log_infos'] as $key => $log) {
+                    LogUtil::i($log);
+                }
+                // 画面遷移
+                if ($errorMessage) {
+                    $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete failed] [path:' . $filePath . ']';
+                    LogUtil::deleteDirectoryError($message);
+                    return redirect()->route('solver.index')->with(['message' => $errorMessage]);
+                } else {
+                    $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete success] [path:' . $filePath . ']';
+                    LogUtil::i($message);
+                    return redirect()->route('solver.index');
+                }
             } else {
-                $errorMessage = [];
 
                 $solver = null;
 
@@ -218,6 +264,7 @@ class SolverController extends BaseController
                 }
             }
         } catch (Exception $e) {
+            DB::rollBack();
             $error = $e->getMessage();
             LogUtil::e($error);
             return view('layouts.error', compact('e'));

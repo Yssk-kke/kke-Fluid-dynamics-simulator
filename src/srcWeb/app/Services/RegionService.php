@@ -30,8 +30,32 @@ class RegionService extends BaseService
         $result = true;
         $logInfos = [];
 
-        // 解析対象地域の削除
-        if (Region::destroy($region_id) > 0) {
+        $region = self::getRegionById($region_id);
+        // STLファイルテーブルから削除
+        $stl_models = $region->stl_models();
+        if ($stl_models->count() > 0) {
+            if ($stl_models->delete() > 0) {
+                array_push($logInfos, "[stl_model] [dalete] [region_id: {$region_id}]");
+            } else {
+                $result = false;
+            }
+        }
+
+        // シミュレーションモデルテーブルから削除
+        if ($result) {
+            $simulation_models = $region->simulation_models();
+            foreach ($simulation_models->get() as $simulation_model) {
+                $deleteResult = SimulationModelService::deleteSimulationModelById($simulation_model->simulation_model_id);
+                if ($deleteResult['result']) {
+                    array_push($logInfos, ...$deleteResult['log_infos']);
+                } else {
+                    $result = false;
+                }
+            }
+        }
+
+        // 解析対象地域テーブルから削除
+        if ($result && Region::destroy($region_id) > 0) {
             array_push($logInfos, "[region] [delete] [region_id: {$region_id}]");
         } else {
             $result = false;
@@ -39,11 +63,12 @@ class RegionService extends BaseService
 
         // 都市モデルの更新
         $now = DatetimeUtil::getNOW();
-        if (CityModelService::updateCityModelById($city_model_id, 'last_update_datetime', $now )) {
+        if ($result && CityModelService::updateCityModelById($city_model_id, 'last_update_datetime', $now)) {
             array_push($logInfos, "[city_model] [update] [city_model_id: {$city_model_id}, last_update_datetime: {$now}]");
         } else {
             $result = false;
         }
+        
         return ["result" => $result, "log_infos" => $logInfos];
     }
 
@@ -358,7 +383,7 @@ class RegionService extends BaseService
 
         if ($result) {
 
-            array_push($logInfos,$logInfo);
+            array_push($logInfos, $logInfo);
 
             // 都市モデルの更新
             if (CityModelService::updateCityModelById($city_model_id, 'last_update_datetime', $now)) {
@@ -438,7 +463,7 @@ class RegionService extends BaseService
     /**
      * 3D地図描画に必要な全てCZMLファイルが出来上がったか定期的に確認する。
      *
-    *  @param Uuid $region_id 解析対象地域ID
+     *  @param Uuid $region_id 解析対象地域ID
      * @param integer $timeout タイムアウト[秒]
      * @return array 確認結果
      */

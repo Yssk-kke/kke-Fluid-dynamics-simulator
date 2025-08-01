@@ -2,6 +2,7 @@
 
 namespace App\Utils;
 
+use App\Commons\Constants;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -75,5 +76,15 @@ class LogUtil
     public static function e()
     {
         self::log('e', func_get_args());
+    }
+
+    /**
+     * ディレクトリの削除に失敗した場合にログファイルに出力するためのメソッド
+     * @param string $message
+     * @return void
+     */
+    public static function deleteDirectoryError($message)
+    {
+        Log::channel(Constants::ERROR_LOG_CHANNEL)->error($message);
     }
 }

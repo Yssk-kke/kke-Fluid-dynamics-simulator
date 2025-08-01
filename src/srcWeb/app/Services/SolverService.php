@@ -167,8 +167,17 @@ class SolverService extends BaseService
      */
     public static function deleteSolver($solver_id)
     {
+        $result = true;
+        $logInfos = [];
+
         $solver = self::getSolverById($solver_id);
-        $solver->delete();
-        LogUtil::i("[solver] [delete] [solver_id: {$solver_id}]");
+        if($solver->delete()) {
+            $logInfo = "[solver] [delete] [solver_id: {$solver_id}]";
+            array_push($logInfos, $logInfo);
+        }else {
+            $result = false;
+        }
+
+        return ["result" => $result, "log_infos" => $logInfos];
     }
 }

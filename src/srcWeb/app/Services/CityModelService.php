@@ -7,10 +7,8 @@ use App\Commons\CommonUtils;
 use App\Commons\Constants;
 use App\Models\Db\CityModel;
 use App\Models\Db\Coordinate;
-use App\Models\Db\StlModel;
 use App\Models\Db\StlType;
 use App\Utils\DatetimeUtil;
-use App\Utils\FileUtil;
 use App\Utils\LogUtil;
 use Faker\Core\Uuid;
 use Illuminate\Database\Eloquent\Collection;
@@ -30,10 +28,10 @@ class CityModelService extends BaseService
      */
     public static function getCityModelList($login_user_id)
     {
-            $cityModelList = CityModel::where("registered_user_id", $login_user_id)
+        $cityModelList = CityModel::where("registered_user_id", $login_user_id)
             ->orWhere("preset_flag", true) // 都市モデルテーブル]のプリセットフラグが有効である。
-            ->orWhereHas('city_model_reference_authoritys',function ($query) use ($login_user_id) {
-                    $query->where('user_id', $login_user_id);
+            ->orWhereHas('city_model_reference_authoritys', function ($query) use ($login_user_id) {
+                $query->where('user_id', $login_user_id);
             })
             ->orderBy('last_update_datetime', 'desc') // 最終更新日時
             ->take(Constants::SELECT_LIMIT) // 最大表示件数
@@ -62,6 +60,19 @@ class CityModelService extends BaseService
                 array_push($logInfos, $logInfo);
             } else {
                 $result = false;
+            }
+        }
+
+        // 解析対象テーブルから削除
+        $regions = self::getCityModelById($id)->regions();
+        if ($result) {
+            foreach ($regions->get() as $region) {
+                $deleteResult = RegionService::deleteRegionById($id, $region->region_id);
+                if ($deleteResult['result']) {
+                    array_push($logInfos, ...$deleteResult['log_infos']);
+                } else {
+                    $result = false;
+                }
             }
         }
 

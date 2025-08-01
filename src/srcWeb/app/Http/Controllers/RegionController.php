@@ -6,6 +6,8 @@ use App\Commons\Constants;
 use App\Commons\Message;
 use App\Services\ApiService;
 use App\Services\RegionService;
+use App\Services\SimulationModelService;
+use App\Utils\FileUtil;
 use App\Utils\LogUtil;
 use Exception;
 use Illuminate\Http\Request;
@@ -170,26 +172,89 @@ class RegionController extends BaseController
     {
         try {
 
+            $errorMessage = [];
+
             // 登録ユーザ
             $registeredUserId = $request->query->get('registered_user_id');
 
             $isDeleteFlg = $request->query->get('delete_flg');
             if ($isDeleteFlg) {
-                // 解析対象地域の削除
+
                 DB::beginTransaction();
+
+                // 識別名を取得しておく
+                $regionModelName = RegionService::getRegionById($region_id)->region_name;
+                // ディレクトリ削除用にregionに紐づいたsimulation_modelを取得する
+                $simulationModels = RegionService::getRegionById($region_id)->simulation_models;
+
+                // 解析対象地域の削除
                 $deleteResult = RegionService::deleteRegionById($city_model_id, $region_id);
+                $filePath = FileUtil::CITY_MODEL_FOLDER . DIRECTORY_SEPARATOR . $city_model_id . DIRECTORY_SEPARATOR . "region" . DIRECTORY_SEPARATOR . $region_id;
                 if ($deleteResult['result']) {
-                    DB::commit();
-                    foreach ($deleteResult['log_infos'] as $key => $log) {
-                        LogUtil::i($log);
+                    if (!FileUtil::deleteDirectory($filePath)) {
+                        // ディレクトリの削除に失敗しました。
+                        $errorMessage = [
+                            "type" => "E",
+                            "code" => "E38",
+                            "msg" => sprintf(Message::$E38, Constants::DEL_TYPE_DIRECTORY)
+                        ];
+                    }
+                    // simulation_modelレコードに紐づいているディレクトリの削除処理
+                    $deleteDirectoryResults = ['result' => true, 'successDirectoryPaths' => [], 'failureDirectoryPaths' => []];
+                    foreach ($simulationModels as $simulationModel) {
+                        $deleteDirectoryResult = SimulationModelService::deleteSimulationModelDirectory($simulationModel->simulation_model_id);
+                        array_push($deleteDirectoryResults['successDirectoryPaths'], ...$deleteDirectoryResult['successDirectoryPaths']);
+                        array_push($deleteDirectoryResults['failureDirectoryPaths'], ...$deleteDirectoryResult['failureDirectoryPaths']);
+                    }
+                } else {
+                    // DBレコードの削除に失敗した場合の処理。
+                    $errorMessage = [
+                        "type" => "E",
+                        "code" => "E37",
+                        "msg" => sprintf(Message::$E37, Constants::DEL_TYPE_RECORD)
+                    ];
+                    DB::rollback();
+                    $message = '[' . Constants::DEL_TYPE_RECORD . "] [Delete failed] [region_model] [region_id:$region_id]";
+                    LogUtil::deleteDirectoryError($message);
+                    // ダイアログを表示
+                    return redirect()->route('city_model.edit', ['id' => $city_model_id, 'registered_user_id' => $registeredUserId])->with(['message' => $errorMessage]);
+                }
+
+                DB::commit();
+                // DBのログを出力
+                foreach ($deleteResult['log_infos'] as $key => $log) {
+                    LogUtil::i($log);
+                }
+                // 削除に失敗したsimulation_modelに紐づいたディレクトリのログを出力
+                foreach ($deleteDirectoryResults['failureDirectoryPaths'] as $directoryPath) {
+                    $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete failed] [path:' . $directoryPath . ']';
+                    LogUtil::deleteDirectoryError($message);
+                }
+                foreach ($deleteDirectoryResults['successDirectoryPaths'] as $directoryPath) {
+                    $message = $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete success] [path:' . $directoryPath . ']';
+                    LogUtil::i($message);
+                }
+
+                // 画面遷移
+                if ($errorMessage) {
+                    $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete failed] [path:' . $filePath . ']';
+                    LogUtil::deleteDirectoryError($message);
+                    return redirect()->route('city_model.edit', ['id' => $city_model_id, 'registered_user_id' => $registeredUserId])->with(['message' => $errorMessage]);
+                } else {
+                    $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete success] [path:' . $filePath . ']';
+                    LogUtil::i($message);
+                    if ($deleteDirectoryResults['failureDirectoryPaths']) {
+                        // simulation_modelに紐づいているディレクトリの削除に失敗していた場合の処理
+                        $errorMessage = [
+                            "type" => "E",
+                            "code" => "E38",
+                            "msg" => sprintf(Message::$E38, Constants::DEL_TYPE_DIRECTORY)
+                        ];
+                        return redirect()->route('city_model.edit', ['id' => $city_model_id, 'registered_user_id' => $registeredUserId])->with(['message' => $errorMessage]);
                     }
                     return redirect()->route('city_model.edit', ['id' => $city_model_id, 'registered_user_id' => $registeredUserId]);
-                } else {
-                    throw new Exception("解析対象地域の削除に失敗しました。解析対象地域ID: {$region_id}");
                 }
             } else {
-
-                $errorMessage = [];
 
                 // 削除操作ができるか確認
                 if ($region_id == 0) {
@@ -215,7 +280,7 @@ class RegionController extends BaseController
                     if (!$region) {
                         throw new Exception("解析対象地域の削除に失敗しました。解析対象地域ID「{$region_id}」のレコードが存在しません。");
                     } else {
-                        $warningMessage = ["type" => "W", "code" => "W1", "msg" => sprintf(Message::$W1, $region->region_name)];
+                        $warningMessage = ["type" => "W", "code" => "W4", "msg" => sprintf(Message::$W4, $region->region_name)];
                         return redirect()->route('city_model.edit', ['id' => $city_model_id, 'registered_user_id' => $registeredUserId, 'region_id' => $region_id])->with(['message' => $warningMessage]);
                     }
                 }
@@ -392,15 +457,51 @@ class RegionController extends BaseController
             if ($isDeleteFlg) {
                 // STLファイルの削除
                 DB::beginTransaction();
+                // レコード削除前に名前を取得しておく
+                $stlModelName = RegionService::getSltFile($region_id, $stlTypeId)->stl_type_id;
+
+                // stl_modelから削除
                 $deleteResult = RegionService::deleteStlFile($city_model_id, $region_id, $stlTypeId);
+                $errorMessage = [];
                 if ($deleteResult['result']) {
-                    DB::commit();
-                    foreach ($deleteResult['log_infos'] as $key => $log) {
-                        LogUtil::i($log);
+
+                    $filePath = FileUtil::CITY_MODEL_FOLDER . DIRECTORY_SEPARATOR . $city_model_id . DIRECTORY_SEPARATOR . "region" . DIRECTORY_SEPARATOR . $region_id . DIRECTORY_SEPARATOR . $stlTypeId;
+                    if (!FileUtil::deleteDirectory($filePath)) {
+                        // ディレクトリの削除に失敗した場合の処理。
+                        $errorMessage = [
+                            "type" => "E",
+                            "code" => "E38",
+                            "msg" => sprintf(Message::$E38, Constants::DEL_TYPE_DIRECTORY)
+                        ];
                     }
-                    return redirect()->route('city_model.edit', ['id' => $city_model_id, 'registered_user_id' => $registeredUserId, 'region_id' => $region_id]);
                 } else {
-                    throw new Exception("STLファイルの削除に失敗しました。解析対象地域ID: {$region_id}, STLファイル種別ID: {$$stlTypeId}");
+                    // DBレコードの削除に失敗した場合の処理。
+                    $errorMessage = [
+                        "type" => "E",
+                        "code" => "E37",
+                        "msg" => sprintf(Message::$E37, Constants::DEL_TYPE_RECORD)
+                    ];
+                    DB::rollback();
+                    $message = '[' . Constants::DEL_TYPE_RECORD . "] [Delete failed] [stl_model] [region_id:$region_id, stl_type_id:$stlTypeId]";
+                    LogUtil::deleteDirectoryError($message);
+                    // ダイアログを表示
+                    return redirect()->route('city_model.edit', ['id' => $city_model_id, 'registered_user_id' => $registeredUserId])->with(['message' => $errorMessage]);
+                }
+
+                // DBのレコードの削除に成功した場合の処理
+                DB::commit();
+                foreach ($deleteResult['log_infos'] as $key => $log) {
+                    LogUtil::i($log);
+                }
+
+                if ($errorMessage) {
+                    $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete failed] [path:' . $filePath . ']';
+                    LogUtil::deleteDirectoryError($message);
+                    return redirect()->route('city_model.edit', ['id' => $city_model_id, 'registered_user_id' => $registeredUserId])->with(['message' => $errorMessage]);
+                } else {
+                    $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete success] [path:' . $filePath . ']';
+                    LogUtil::i($message);
+                    return redirect()->route('city_model.edit', ['id' => $city_model_id, 'registered_user_id' => $registeredUserId]);
                 }
             } else {
 

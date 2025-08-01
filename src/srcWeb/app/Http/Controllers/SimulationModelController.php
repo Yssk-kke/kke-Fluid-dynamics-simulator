@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Commons\Constants;
 use App\Commons\Message;
+use App\Models\Db\StlType;
 use App\Services\CityModelService;
 use App\Services\HeightService;
 use App\Services\RegionService;
@@ -126,13 +127,33 @@ class SimulationModelController extends BaseController
             } else {
                 $region = RegionService::getRegionById($regionId);
                 $stlModels = $region->stl_models()->get();
-                $isE18 = true;
-                foreach ($stlModels as $stlModel) {
-                    if ($stlModel->stl_type->required_flag) {
+
+                $isE18 = true; // E18エラーメッセージを出すかどうかのフラグ
+
+                if (count($stlModels) > 0) {
+                    // 解析対象地域に紐づいたSTLファイルが存在する場合のみその後の処理をする
+
+                    // 解析対象地域に紐づいたSTLファイルの必須フラグを配列に格納する
+                    $requiredFlags = [];
+                    foreach ($stlModels as $stlModel) {
+                        array_push($requiredFlags, $stlModel->stl_type->required_flag);
+                    }
+
+                    // stl_typeテーブルの必須フラグの数を集計
+                    $stlTypes = StlType::get();
+                    $flagcounter = 0;
+                    foreach ($stlTypes as $stlType) {
+                        if ($stlType->required_flag) {
+                            $flagcounter++;
+                        }
+                    }
+
+                    if ($flagcounter == 0 || $flagcounter == count(array_filter($requiredFlags, function ($flag) {return $flag;}))) {
+                        // 解析対象地域に紐づいたSTLファイルの必須フラグ数とstl_typeテーブル全体の必須フラグ数が同じだった場合の処理とstl_typeテーブルの必須フラグが全てfalseだった場合の処理
                         $isE18 = false;
-                        break;
                     }
                 }
+
                 if ($isE18) {
                     $errorMessage = ["type" => "E", "code" => "E18", "msg" => sprintf(Message::$E18, $region->region_name)];
                 }
@@ -290,25 +311,64 @@ class SimulationModelController extends BaseController
     public function destroy(Request $request, string $id)
     {
         try {
+            $errorMessage = [];
 
             $isDeleteFlg = $request->query->get('delete_flg');
             if ($isDeleteFlg) {
-
                 DB::beginTransaction();
+
                 // シミュレーションモデルテーブルと日射吸収率テーブルとシミュレーションモデル参照権限テーブルのレコードを削除
                 $deleteResult = SimulationModelService::deleteSimulationModelById($id);
                 if ($deleteResult['result']) {
-                    DB::commit();
-                    foreach ($deleteResult['log_infos'] as $key => $log) {
-                        LogUtil::i($log);
+                    // シミュレーションモデルテーブルとそれに紐づいたレコードの削除に成功
+
+                    //シミュレーションモデルに紐づいたディレクトリを削除する
+                    $deleteDirectoryResult = SimulationModelService::deleteSimulationModelDirectory($id);
+
+                    if (!$deleteDirectoryResult['result']) {
+                        // ディレクトリの削除に失敗した場合の処理。
+                        $errorMessage = [
+                            "type" => "E",
+                            "code" => "E38",
+                            "msg" => sprintf(Message::$E38, Constants::DEL_TYPE_DIRECTORY)
+                        ];
                     }
-                    return redirect()->route('simulation_model.index');
                 } else {
-                    throw new Exception("シミュレーションモデルの削除に失敗しました。シミュレーションモデルID: {$id}");
+                    // DBレコードの削除に失敗した場合の処理。
+                    $errorMessage = [
+                        "type" => "E",
+                        "code" => "E37",
+                        "msg" => sprintf(Message::$E37, Constants::DEL_TYPE_RECORD)
+                    ];
+                    DB::rollback();
+                    $message = '[' . Constants::DEL_TYPE_RECORD . "] [Delete failed] [simulation_model] [simulation_model_id:$id]";
+                    LogUtil::deleteDirectoryError($message);
+                    // ダイアログを表示
+                    return redirect()->route('simulation_model.index')->with(['message' => $errorMessage]);
+                }
+
+                DB::commit();
+
+                // ログの出力
+                foreach ($deleteResult['log_infos'] as $key => $log) {
+                    LogUtil::i($log);
+                }
+                foreach ($deleteDirectoryResult['failureDirectoryPaths'] as $directoryPath) {
+                    $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete failed] [path:' . $directoryPath . ']';
+                    LogUtil::deleteDirectoryError($message);
+                }
+                foreach ($deleteDirectoryResult['successDirectoryPaths'] as $directoryPath) {
+                    $message = $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete success] [path:' . $directoryPath . ']';
+                    LogUtil::i($message);
+                }
+
+                // 画面遷移
+                if ($errorMessage) {
+                    return redirect()->route('simulation_model.index')->with(['message' => $errorMessage]);
+                } else {
+                    return redirect()->route('simulation_model.index');
                 }
             } else {
-
-                $errorMessage = [];
 
                 // 登録ユーザ
                 $registeredUserId = $request->query->get('registered_user_id');

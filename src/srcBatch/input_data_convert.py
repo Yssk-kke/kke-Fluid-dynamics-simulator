@@ -7,6 +7,7 @@ from common import static
 from common import webapp_db_connection
 from common import coordinate_converter
 from common import temperature_converter
+from common import shell_controller
 from datetime import date
 import math
 import numpy as np
@@ -710,6 +711,8 @@ def main(model_id:str):
 
     try:
         convert(model_id)
+        # Webアプリ側からフォルダを削除する際に、www-dataからの削除権限が必要なので、権限を設定。
+        shell_controller.change_folder_permission(file_path_generator.get_simulation_input_model_id_folder_fs(model_id))
         #引数で取得したSIMULATION_MODEL.idのレコードのstatusをNORMAL_ENDに更新する。
         status_db_connection.set_progress(model_id,task_id,status_db_connection.STATUS_NORMAL_END)
     except Exception as e:

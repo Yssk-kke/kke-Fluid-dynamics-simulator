@@ -372,6 +372,17 @@ class SimulationModelService extends BaseService
             }
         }
 
+        // 可視化ファイルテーブルから削除
+        $visualzations = self::getSimulationModelById($id)->visualizations();
+        if ($visualzations->count() > 0) {
+            if ($result && ($visualzations->delete() > 0)) {
+                $logInfo = "[visualzation] [dalete] [simulation_model_id: {$id}]";
+                array_push($logInfos, $logInfo);
+            } else {
+                $result = false;
+            }
+        }
+
         // シミュレーションモデルから削除
         if ($result && (SimulationModel::destroy($id) > 0)) {
             $logInfo = "[simulation_model] [delete] [simulation_model_id: {$id}]";
@@ -878,5 +889,46 @@ class SimulationModelService extends BaseService
         }
 
         return $windDirections;
+    }
+
+    /**
+     * シミュレーションモデルを削除した際にsimulation_modelレコードに紐づいたディレクトリを削除するためのメソッド
+     * @param Uuid $simulation_model_id シミュレーションモデルID
+     * @return array 削除に成功したディレクトリのPath、失敗したディレクトリのPathを含む配列
+     */
+    public static function deleteSimulationModelDirectory($simulation_model_id)
+    {
+        $result = true;
+        $successDirectoryPaths = [];
+        $failureDirectoryPaths = [];
+
+        // simulation_inputフォルダにあるsimulation_modelに紐づいたディレクトリのPath
+        $simulationInputPath = FileUtil::SIMULATION_INPUT_FOLDER . DIRECTORY_SEPARATOR . $simulation_model_id;
+        if (FileUtil::deleteDirectory($simulationInputPath)) {
+            array_push($successDirectoryPaths, $simulationInputPath);
+        } else {
+            $result = false;
+            array_push($failureDirectoryPaths, $simulationInputPath);
+        }
+
+        // simulation_outputフォルダにあるsimulation_modelに紐づいたディレクトリのPath
+        $simulationOutputPath = FileUtil::SIMULATION_OUTPUT_FOLDER . DIRECTORY_SEPARATOR . $simulation_model_id;
+        if (FileUtil::deleteDirectory($simulationOutputPath)) {
+            array_push($successDirectoryPaths, $simulationOutputPath);
+        } else {
+            $result = false;
+            array_push($failureDirectoryPaths, $simulationOutputPath);
+        }
+
+        // converted_outputフォルダにあるsimulation_modelに紐づいたディレクトリのPath
+        $convertedOutputPath = FileUtil::CONVERTED_OUTPUT_FOLDER . DIRECTORY_SEPARATOR . $simulation_model_id;
+        if (FileUtil::deleteDirectory($convertedOutputPath)) {
+            array_push($successDirectoryPaths, $convertedOutputPath);
+        } else {
+            $result = false;
+            array_push($failureDirectoryPaths, $convertedOutputPath);
+        }
+
+        return ['result' => $result, 'successDirectoryPaths' => $successDirectoryPaths, 'failureDirectoryPaths' => $failureDirectoryPaths];
     }
 }

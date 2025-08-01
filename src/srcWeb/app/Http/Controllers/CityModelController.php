@@ -6,6 +6,8 @@ use App\Commons\Constants;
 use App\Commons\Message;
 use App\Services\CityModelService;
 use App\Services\RegionService;
+use App\Services\SimulationModelService;
+use App\Utils\FileUtil;
 use App\Utils\LogUtil;
 use Exception;
 use Illuminate\Http\Request;
@@ -305,24 +307,91 @@ class CityModelController extends BaseController
     {
         try {
 
+            $errorMessage = [];
+
             $isDeleteFlg = $request->query->get('delete_flg');
             if ($isDeleteFlg) {
 
                 DB::beginTransaction();
+
+                // 識別名を取得する。
+                $cityModelName = CityModelService::getCityModelById($id)->identification_name;
+                // レコード削除前にregionに紐づいているディレクトリ削除のためregion、simulation_modelを取得する
+                $simulationModels = [];
+                $regions = CityModelService::getCityModelById($id)->regions;
+                foreach ($regions as $region) {
+                    foreach ($region->simulation_models as $simulationModel) {
+                        array_push($simulationModels, $simulationModel);
+                    }
+                }
                 // 都市モデル参照権限と都市モデルを削除
                 $deleteResult = CityModelService::deleteCityModelById($id);
+                $filePath = FileUtil::CITY_MODEL_FOLDER . DIRECTORY_SEPARATOR . $id;
                 if ($deleteResult['result']) {
-                    DB::commit();
-                    foreach ($deleteResult['log_infos'] as $key => $log) {
-                        LogUtil::i($log);
+                    if (!FileUtil::deleteDirectory($filePath)) {
+                        // ディレクトリの削除に失敗した場合の処理。
+                        $errorMessage = [
+                            "type" => "E",
+                            "code" => "E38",
+                            "msg" => sprintf(Message::$E38, Constants::DEL_TYPE_DIRECTORY)
+                        ];
+                    }
+                    // simulation_modelレコードに紐づいているディレクトリの削除処理
+                    $deleteDirectoryResults = ['result' => true, 'successDirectoryPaths' => [], 'failureDirectoryPaths' => []];
+                    foreach ($simulationModels as $simulationModel) {
+                        $deleteDirectoryResult = SimulationModelService::deleteSimulationModelDirectory($simulationModel->simulation_model_id);
+                        array_push($deleteDirectoryResults['successDirectoryPaths'], ...$deleteDirectoryResult['successDirectoryPaths']);
+                        array_push($deleteDirectoryResults['failureDirectoryPaths'], ...$deleteDirectoryResult['failureDirectoryPaths']);
+                    }
+                } else {
+                    // DBレコードの削除に失敗した場合の処理。
+                    $errorMessage = [
+                        "type" => "E",
+                        "code" => "E37",
+                        "msg" => sprintf(Message::$E37, Constants::DEL_TYPE_RECORD)
+                    ];
+                    DB::rollback();
+                    $message = '[' . Constants::DEL_TYPE_RECORD . "] [Delete failed] [city_model] [city_model_id:$id]";
+                    LogUtil::deleteDirectoryError($message);
+                    // ダイアログを表示
+                    return redirect()->route('city_model.index')->with(['message' => $errorMessage]);
+                }
+
+                DB::commit();
+                // DBのログの出力
+                foreach ($deleteResult['log_infos'] as $key => $log) {
+                    LogUtil::i($log);
+                }
+                // 削除に失敗したsimulation_modelに紐づいたディレクトリのログを出力
+                foreach ($deleteDirectoryResults['failureDirectoryPaths'] as $directoryPath) {
+                    $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete failed] [path:' . $directoryPath . ']';
+                    LogUtil::deleteDirectoryError($message);
+                }
+                foreach ($deleteDirectoryResults['successDirectoryPaths'] as $directoryPath) {
+                    $message = $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete success] [path:' . $directoryPath . ']';
+                    LogUtil::i($message);
+                }
+
+                // 画面遷移
+                if ($errorMessage) {
+                    $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete failed] [path:' . $filePath . ']';
+                    LogUtil::deleteDirectoryError($message);
+                    return redirect()->route('city_model.index')->with(['message' => $errorMessage]);
+                } else {
+                    $message = '[' . Constants::DEL_TYPE_DIRECTORY . '] [Delete success] [path:' . $filePath . ']';
+                    LogUtil::i($message);
+                    if ($deleteDirectoryResults['failureDirectoryPaths']) {
+                        // simulation_modelに紐づいているディレクトリの削除に失敗していた場合の処理
+                        $errorMessage = [
+                            "type" => "E",
+                            "code" => "E38",
+                            "msg" => sprintf(Message::$E38, Constants::DEL_TYPE_DIRECTORY)
+                        ];
+                        return redirect()->route('city_model.index')->with(['message' => $errorMessage]);
                     }
                     return redirect()->route('city_model.index');
-                } else {
-                    throw new Exception("都市モデル削除に失敗しました。都市モデルID: {$id}");
                 }
             } else {
-
-                $errorMessage = [];
 
                 // 登録ユーザ
                 $registeredUserId = $request->query->get('registered_user_id');
@@ -340,7 +409,7 @@ class CityModelController extends BaseController
                     return redirect()->route('city_model.index')->with(['message' => $errorMessage]);
                 } else {
                     $identificationName = CityModelService::getCityModelById($id)->identification_name;
-                    $warningMessage = ["type" => "W", "code" => "W1", "msg" => sprintf(Message::$W1, $identificationName)];
+                    $warningMessage = ["type" => "W", "code" => "W5", "msg" => sprintf(Message::$W5, $identificationName)];
                     return redirect()->route('city_model.index')->with(['message' => $warningMessage, 'citymodelId' => $id]);
                 }
             }

@@ -145,10 +145,23 @@ class FileUtil extends \Eloquent
     public static function getFileName($path)
     {
         $fileName = "";
-        if (self::isExists($path))
-        {
+        if (self::isExists($path)) {
             $fileName = basename($path);
         }
         return $fileName;
+    }
+
+    /**
+     * 指定したディレクトリを消去するメソッド
+     * @param string $path ディレクトリの相対パス
+     * @return bool 消去したいディレクトリが存在しなかった場合またはディレクトリの削除に成功した場合true。ディレクトリの削除処理に失敗した場合false
+     */
+    public static function deleteDirectory($path)
+    {
+        if (self::isExists($path)) {
+            $deleteDirectoryPath = "public" . DIRECTORY_SEPARATOR . $path;
+            return Storage::deleteDirectory($deleteDirectoryPath);
+        }
+        return true;
     }
 }
