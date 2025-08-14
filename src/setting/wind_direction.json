@@ -1,0 +1,82 @@
+[
+    {
+        "display_name": "南->北",
+        "display_order": 1,
+        "database_order": 1
+    },
+    {
+        "display_name": "南南西->北北東",
+        "display_order": 2,
+        "database_order": 5
+    },
+    {
+        "display_name": "南西->北東",
+        "display_order": 3,
+        "database_order": 6
+    },
+    {
+        "display_name": "西南西->東北東",
+        "display_order": 4,
+        "database_order": 7
+    },
+    {
+        "display_name": "西->東",
+        "display_order": 5,
+        "database_order": 3
+    },
+    {
+        "display_name": "西北西->東南東",
+        "display_order": 6,
+        "database_order": 8
+    },
+    {
+        "display_name": "北西->南東",
+        "display_order": 7,
+        "database_order": 9
+    },
+    {
+        "display_name": "北北西->南南東",
+        "display_order": 8,
+        "database_order": 10
+    },
+    {
+        "display_name": "北->南",
+        "display_order": 9,
+        "database_order": 2
+    },
+    {
+        "display_name": "北北東->南南西",
+        "display_order": 10,
+        "database_order": 11
+    },
+    {
+        "display_name": "北東->南西",
+        "display_order": 11,
+        "database_order": 12
+    },
+    {
+        "display_name": "東北東->西南西",
+        "display_order": 12,
+        "database_order": 13
+    },
+    {
+        "display_name": "東->西",
+        "display_order": 13,
+        "database_order": 4
+    },
+    {
+        "display_name": "東南東->西北西",
+        "display_order": 14,
+        "database_order": 14
+    },
+    {
+        "display_name": "南東->北西",
+        "display_order": 15,
+        "database_order": 15
+    },
+    {
+        "display_name": "南南東->北北西",
+        "display_order": 16,
+        "database_order": 16
+    }
+]
