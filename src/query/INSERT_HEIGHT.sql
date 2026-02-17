@@ -1,7 +1,8 @@
--- —vŒ’è‹`Ž‘—¿[III.5.‡B.19	‘Š‘Î‚‚³ƒe[ƒuƒ‹]
--- ƒEƒFƒuƒAƒvƒŠ‚ÌGUI‘€ì‚Å’Ç‰ÁXVíœ‚µ‚È‚¢ƒe[ƒuƒ‹
+-- è¦ä»¶å®šç¾©è³‡æ–™ [ç›¸å¯¾é«˜ã•ãƒ†ãƒ¼ãƒ–ãƒ«]
+-- Webã‚¢ãƒ—ãƒªã®GUIæ“ä½œã§è¿½åŠ æ›´æ–°å‰Šé™¤ã—ãªã„ãƒ†ãƒ¼ãƒ–ãƒ«
 
-INSERT INTO public.HEIGHT(height_id, height) VALUES (1, 1.5);
+INSERT INTO public.HEIGHT(height_id, height) VALUES (1, 3);
 INSERT INTO public.HEIGHT(height_id, height) VALUES (2, 5);
 INSERT INTO public.HEIGHT(height_id, height) VALUES (3, 10);
-INSERT INTO public.HEIGHT(height_id, height) VALUES (4, 30);
+INSERT INTO public.HEIGHT(height_id, height) VALUES (4, 20);
+INSERT INTO public.HEIGHT(height_id, height) VALUES (5, 30);

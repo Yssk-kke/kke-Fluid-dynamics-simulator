@@ -12,9 +12,11 @@ DROP TABLE IF EXISTS REGION;
 DROP TABLE IF EXISTS CITY_MODEL;
 DROP TABLE IF EXISTS COORDINATE;
 DROP TABLE IF EXISTS HEIGHT;
+DROP TABLE IF EXISTS INFORMATION;
 DROP TABLE IF EXISTS POLICY;
 DROP TABLE IF EXISTS SOLVER;
 DROP TABLE IF EXISTS STL_TYPE;
+DROP TABLE IF EXISTS TREE_TYPE;
 DROP TABLE IF EXISTS USER_ACCOUNT;
 
 
@@ -78,6 +80,17 @@ CREATE TABLE HEIGHT
 	-- 相対高さ
 	height float,
 	PRIMARY KEY (height_id)
+) WITHOUT OIDS;
+
+
+-- (IM)インフォメーション
+CREATE TABLE INFORMATION
+(
+	-- インフォメーションid
+	information_id smallint NOT NULL,
+	-- インフォメーション
+	information varchar(1024),
+	PRIMARY KEY (information_id)
 ) WITHOUT OIDS;
 
 
@@ -282,11 +295,30 @@ CREATE TABLE STL_TYPE
 	required_flag boolean,
 	-- 地面フラグ
 	ground_flag boolean,
+	-- 単独木フラグ
+	tree_flag boolean,
+	-- 植被フラグ
+	plant_cover_flag boolean,
 	-- 日射吸収率
 	solar_absorptivity float,
 	-- 排熱量
 	heat_removal float,
 	PRIMARY KEY (stl_type_id)
+) WITHOUT OIDS;
+
+
+-- (TT)単独木分類
+CREATE TABLE TREE_TYPE
+(
+	-- 単独木分類ID
+	tree_type_id smallint NOT NULL,
+	-- 単独木分類名
+	tree_type_name varchar(256),
+	-- 樹冠直径
+	canopy_diameter float,
+	-- 高さ
+	height float,
+	PRIMARY KEY (tree_type_id)
 ) WITHOUT OIDS;
 
 
@@ -531,6 +563,9 @@ COMMENT ON COLUMN COORDINATE.origin_longitude IS '原点経度';
 COMMENT ON TABLE HEIGHT IS '(PH) 相対高さ';
 COMMENT ON COLUMN HEIGHT.height_id IS '相対高さID';
 COMMENT ON COLUMN HEIGHT.height IS '相対高さ';
+COMMENT ON TABLE INFORMATION IS '(IM)インフォメーション';
+COMMENT ON COLUMN INFORMATION.information_id IS 'インフォメーションid';
+COMMENT ON COLUMN INFORMATION.information IS 'インフォメーション';
 COMMENT ON TABLE POLICY IS '(PP)熱対策施策';
 COMMENT ON COLUMN POLICY.policy_id IS '施策ID';
 COMMENT ON COLUMN POLICY.policy_name IS '施策名';
@@ -611,8 +646,15 @@ COMMENT ON COLUMN STL_TYPE.stl_type_id IS 'STLファイル種別ID';
 COMMENT ON COLUMN STL_TYPE.stl_type_name IS '種別名';
 COMMENT ON COLUMN STL_TYPE.required_flag IS '必須フラグ';
 COMMENT ON COLUMN STL_TYPE.ground_flag IS '地面フラグ';
+COMMENT ON COLUMN STL_TYPE.tree_flag IS '単独木フラグ';
+COMMENT ON COLUMN STL_TYPE.plant_cover_flag IS '植被フラグ';
 COMMENT ON COLUMN STL_TYPE.solar_absorptivity IS '日射吸収率';
 COMMENT ON COLUMN STL_TYPE.heat_removal IS '排熱量';
+COMMENT ON TABLE TREE_TYPE IS '(TT)単独木分類';
+COMMENT ON COLUMN TREE_TYPE.tree_type_id IS '単独木分類ID';
+COMMENT ON COLUMN TREE_TYPE.tree_type_name IS '単独木分類名';
+COMMENT ON COLUMN TREE_TYPE.canopy_diameter IS '樹冠直径';
+COMMENT ON COLUMN TREE_TYPE.height IS '高さ';
 COMMENT ON TABLE USER_ACCOUNT IS '(UA) ユーザアカウント';
 COMMENT ON COLUMN USER_ACCOUNT.user_id IS 'ユーザID';
 COMMENT ON COLUMN USER_ACCOUNT.password IS 'パスワード';

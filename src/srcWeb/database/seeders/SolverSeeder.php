@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Db\Solver;
 use App\Utils\DatetimeUtil;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class SolverSeeder extends Seeder
