@@ -1231,8 +1231,8 @@ def convert(model_id:str):
                 debug_init_sar = sar
                 debug_init_hrq = hrq
                 for policy in policies:
-                    sar += policy.policy.solar_absorptivity
-                    hrq += policy.policy.heat_removal
+                    sar = policy.policy.solar_absorptivity
+                    hrq = policy.policy.heat_removal
                 if(sar < 0):
                     sar = 0
                 if(sar > 1):

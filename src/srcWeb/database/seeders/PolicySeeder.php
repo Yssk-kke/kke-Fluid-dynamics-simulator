@@ -19,25 +19,25 @@ class PolicySeeder extends Seeder
                 'policy_id'             => 1,
                 'policy_name'           => '打ち水',
                 'solar_absorptivity'    => 0,
-                'heat_removal'          => -100
+                'heat_removal'          => -230
             ],
             [
                 'policy_id'             => 2,
                 'policy_name'           => '屋上緑化',
-                'solar_absorptivity'    => -0.2,
-                'heat_removal'          => 0
+                'solar_absorptivity'    => 0.3,
+                'heat_removal'          => -100
             ],
             [
                 'policy_id'             => 3,
                 'policy_name'           => '壁面緑化',
-                'solar_absorptivity'    => -0.2,
-                'heat_removal'          => 0
+                'solar_absorptivity'    => 0.3,
+                'heat_removal'          => -100
             ],
             [
                 'policy_id'             => 4,
                 'policy_name'           => '敷地内植栽',
-                'solar_absorptivity'    => -0.2,
-                'heat_removal'          => 0
+                'solar_absorptivity'    => 0.3,
+                'heat_removal'          => -100
             ],
             // 新規追加のレコードはここから追加してください
         ];
